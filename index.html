@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pendeteksi Energi Meta</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .btn-active:active { transform: scale(0.92); }
+        /* Animasi radar scanning */
+        @keyframes scan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .scanner-line {
+            position: absolute;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to right, transparent, rgba(239, 68, 68, 0.8), transparent);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            animation: scan 3s linear infinite;
+            z-index: 20;
+        }
+        /* Efek noise seperti layar jadul */
+        .crt-noise {
+            background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
+            opacity: 0.05;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen flex flex-col items-center justify-center p-0 md:p-8 font-mono">
+
+    <div class="w-full max-w-md bg-gray-900 md:rounded-3xl shadow-2xl overflow-hidden border border-gray-800 flex flex-col h-screen md:h-auto relative">
+        
+        <!-- Header HUD -->
+        <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-30 pointer-events-none">
+            <div>
+                <h1 class="text-red-500 font-bold tracking-widest text-sm flex items-center gap-2">
+                    <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    META SENSOR
+                </h1>
+                <p id="energyLevelText" class="text-xs text-red-400/80 mt-1">ENERGY DETECT: 0%</p>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] text-gray-500 tracking-widest" id="timeDisplay">00:00:00</p>
+                <p class="text-[10px] text-gray-500 tracking-widest mt-1">REC [::]</p>
+            </div>
+        </div>
+
+        <!-- Area Kamera (HUD Overlay & Canvas Filter) -->
+        <div class="relative bg-black w-full flex-grow md:aspect-[3/4] flex justify-center items-center overflow-hidden">
+            
+            <!-- Elemen Video Asli (Tersembunyi, hanya untuk ambil data frame) -->
+            <video id="video" class="hidden" autoplay playsinline></video>
+            
+            <!-- Canvas tempat kita menggambar efek Thermal -->
+            <canvas id="outputCanvas" class="w-full h-full object-cover z-0"></canvas>
+
+            <!-- Efek UI HUD (Heads Up Display) -->
+            <div id="hudOverlay" class="absolute inset-0 z-10 pointer-events-none hidden border-[1px] border-red-900/30">
+                <!-- Sudut Pembidik -->
+                <div class="absolute top-8 left-8 w-8 h-8 border-t-2 border-l-2 border-red-500/50"></div>
+                <div class="absolute top-8 right-8 w-8 h-8 border-t-2 border-r-2 border-red-500/50"></div>
+                <div class="absolute bottom-8 left-8 w-8 h-8 border-b-2 border-l-2 border-red-500/50"></div>
+                <div class="absolute bottom-8 right-8 w-8 h-8 border-b-2 border-r-2 border-red-500/50"></div>
+                
+                <!-- Garis Crosshair Tengah -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center opacity-40">
+                    <div class="w-full h-[1px] bg-red-500"></div>
+                    <div class="absolute h-full w-[1px] bg-red-500"></div>
+                    <div class="w-4 h-4 rounded-full border border-red-500 absolute"></div>
+                </div>
+
+                <!-- Efek Scanner Berjalan -->
+                <div class="scanner-line"></div>
+                <!-- Efek Layar CRT -->
+                <div class="absolute inset-0 crt-noise z-20"></div>
+            </div>
+
+            <!-- Pesan jika kamera mati -->
+            <div id="cameraStatus" class="absolute text-red-500/50 text-center z-0 flex flex-col items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p class="tracking-widest text-xs font-bold">SYSTEM OFFLINE</p>
+                <button id="initBtn" class="mt-4 px-4 py-2 border border-red-500/50 text-red-500 hover:bg-red-500/10 text-xs tracking-widest rounded transition">INITIALIZE SENSOR</button>
+            </div>
+        </div>
+
+        <!-- Panel Kontrol -->
+        <div class="p-6 bg-gray-900 border-t border-gray-800 z-20 flex justify-between items-center relative">
+            
+            <!-- Indikator Skala Warna -->
+            <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-3/4 max-w-[200px] h-3 rounded-full flex overflow-hidden border border-gray-800 hidden" id="colorScale">
+                <div class="h-full flex-1 bg-black"></div>
+                <div class="h-full flex-1 bg-blue-700"></div>
+                <div class="h-full flex-1 bg-purple-600"></div>
+                <div class="h-full flex-1 bg-red-600"></div>
+                <div class="h-full flex-1 bg-yellow-400"></div>
+                <div class="h-full flex-1 bg-white"></div>
+            </div>
+
+            <button id="switchCameraBtn" class="btn-active p-3 text-gray-500 hover:text-red-400 transition disabled:opacity-30" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+
+            <!-- Tombol Capture -->
+            <button id="captureBtn" class="btn-active relative flex items-center justify-center w-16 h-16 rounded-full border-2 border-red-900 disabled:opacity-30 transition duration-300 group" disabled>
+                <div class="w-12 h-12 bg-red-950 group-hover:bg-red-900 rounded-full transition flex items-center justify-center text-red-500 text-xs font-bold">
+                    SCAN
+                </div>
+            </button>
+
+            <!-- Tombol Toggle Filter -->
+            <button id="toggleFilterBtn" class="btn-active p-3 text-red-500 hover:text-white transition disabled:opacity-30 relative" disabled>
+                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Galeri Mini (Disembunyikan, hanya muncul saat di-capture) -->
+    <div id="galleryContainer" class="fixed inset-0 bg-black/90 z-50 flex-col items-center justify-center hidden p-4">
+        <h2 class="text-red-500 font-bold tracking-widest mb-4">DATA CAPTURED</h2>
+        <img id="previewImg" class="max-w-full max-h-[70vh] border border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)] mb-6">
+        <div class="flex gap-4">
+            <button id="closeGalleryBtn" class="px-6 py-2 border border-gray-600 text-gray-300 hover:bg-gray-800 text-xs tracking-widest">CLOSE</button>
+            <a id="downloadLink" class="px-6 py-2 bg-red-900/50 border border-red-500 text-red-100 hover:bg-red-800 text-xs tracking-widest text-center flex items-center">EXPORT DATA</a>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('outputCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        const initBtn = document.getElementById('initBtn');
+        const switchCameraBtn = document.getElementById('switchCameraBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const toggleFilterBtn = document.getElementById('toggleFilterBtn');
+        
+        const cameraStatus = document.getElementById('cameraStatus');
+        const hudOverlay = document.getElementById('hudOverlay');
+        const colorScale = document.getElementById('colorScale');
+        const energyLevelText = document.getElementById('energyLevelText');
+        
+        const galleryContainer = document.getElementById('galleryContainer');
+        const previewImg = document.getElementById('previewImg');
+        const closeGalleryBtn = document.getElementById('closeGalleryBtn');
+        const downloadLink = document.getElementById('downloadLink');
+
+        let stream = null;
+        let isCameraOn = false;
+        let currentFacingMode = 'environment'; // Default ke kamera belakang
+        let animationId;
+        let applyThermalFilter = true; // Status filter thermal
+
+        // Update Jam HUD
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('timeDisplay').innerText = now.toLocaleTimeString('en-US', { hour12: false });
+        }, 1000);
+
+        async function startCamera() {
+            cameraStatus.innerHTML = '<p class="text-xs text-yellow-500 animate-pulse tracking-widest">CONNECTING...</p>';
+            
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+                    audio: false
+                });
+                
+                video.srcObject = stream;
+                
+                // Tunggu video ready
+                video.onloadedmetadata = () => {
+                    video.play();
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    cameraStatus.classList.add('hidden');
+                    hudOverlay.classList.remove('hidden');
+                    colorScale.classList.remove('hidden');
+                    
+                    isCameraOn = true;
+                    switchCameraBtn.disabled = false;
+                    captureBtn.disabled = false;
+                    toggleFilterBtn.disabled = false;
+                    
+                    // Mulai proses rendering frame
+                    renderFrame();
+                };
+
+            } catch (err) {
+                console.error(err);
+                cameraStatus.innerHTML = '<p class="text-xs text-red-500 tracking-widest">ACCESS DENIED / ERROR</p>';
+            }
+        }
+
+        async function switchCamera() {
+            if (!isCameraOn) return;
+            cancelAnimationFrame(animationId);
+            stream.getTracks().forEach(track => track.stop());
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            await startCamera();
+        }
+
+        // --- INI ADALAH LOGIKA FILTER THERMAL ---
+        function renderFrame() {
+            if (!isCameraOn) return;
+
+            // Gambar video asli ke canvas
+            if(currentFacingMode === 'user') {
+                ctx.save();
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            } else {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            }
+
+            if (applyThermalFilter) {
+                // Ambil data piksel
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                let totalBrightness = 0;
+
+                // Loop setiap piksel (setiap piksel punya 4 array: R, G, B, Alpha)
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    // Hitung tingkat kecerahan (grayscale luma)
+                    // Menggunakan formula luminance standar: 0.299*R + 0.587*G + 0.114*B
+                    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                    totalBrightness += luma;
+
+                    // Mapping luma (0-255) menjadi warna thermal palsu
+                    // Hitam -> Biru Gelap -> Ungu -> Merah -> Kuning -> Putih
+                    
+                    if (luma < 40) {
+                        // Area sangat gelap (Hitam)
+                        data[i] = 0;
+                        data[i + 1] = 0;
+                        data[i + 2] = luma * 0.5; // Sedikit biru
+                    } else if (luma < 90) {
+                        // Biru/Ungu Gelap
+                        data[i] = (luma - 40) * 2; // R naik lambat
+                        data[i + 1] = 0;           // G nol
+                        data[i + 2] = 150;         // B tinggi
+                    } else if (luma < 150) {
+                        // Merah
+                        data[i] = 200 + (luma - 90);
+                        data[i + 1] = 0;
+                        data[i + 2] = 150 - (luma - 90) * 2; // B turun
+                    } else if (luma < 210) {
+                        // Oranye / Kuning
+                        data[i] = 255;
+                        data[i + 1] = (luma - 150) * 4; // G naik drastis jadi kuning
+                        data[i + 2] = 0;
+                    } else {
+                        // Area sangat terang (Energi tinggi / Putih)
+                        data[i] = 255;
+                        data[i + 1] = 255;
+                        data[i + 2] = 150 + (luma - 210) * 2;
+                    }
+                }
+
+                // Terapkan kembali data piksel yang sudah diwarnai ulang ke canvas
+                ctx.putImageData(imageData, 0, 0);
+
+                // Update teks indikator energi (rata-rata kecerahan layar)
+                const totalPixels = canvas.width * canvas.height;
+                const avgBrightness = totalBrightness / totalPixels;
+                const energyPercentage = Math.min(100, Math.round((avgBrightness / 255) * 100 * 1.5)); // dikali 1.5 agar angkanya lebih sensitif
+                
+                energyLevelText.innerText = `ENERGY DETECT: ${energyPercentage}%`;
+                if (energyPercentage > 75) {
+                    energyLevelText.className = "text-xs font-bold text-yellow-400 mt-1 animate-pulse";
+                } else {
+                    energyLevelText.className = "text-xs text-red-400/80 mt-1";
+                }
+            } else {
+                energyLevelText.innerText = `SENSOR DISABLED`;
+                energyLevelText.className = "text-xs text-gray-500 mt-1";
+            }
+
+            // Loop terus menerus setiap frame browser (sekitar 60fps)
+            animationId = requestAnimationFrame(renderFrame);
+        }
+
+        // Toggle untuk menyalakan/mematikan filter
+        toggleFilterBtn.addEventListener('click', () => {
+            applyThermalFilter = !applyThermalFilter;
+            if(applyThermalFilter) {
+                toggleFilterBtn.classList.replace('text-gray-500', 'text-red-500');
+                hudOverlay.classList.remove('hidden');
+                colorScale.classList.remove('hidden');
+            } else {
+                toggleFilterBtn.classList.replace('text-red-500', 'text-gray-500');
+                hudOverlay.classList.add('hidden');
+                colorScale.classList.add('hidden');
+            }
+        });
+
+        // Ambil Foto
+        captureBtn.addEventListener('click', () => {
+            if (!isCameraOn) return;
+
+            // Animasi flash scan merah
+            const flash = document.createElement('div');
+            flash.className = 'absolute inset-0 bg-red-500 z-50 opacity-80 transition-opacity duration-500';
+            video.parentElement.appendChild(flash);
+            setTimeout(() => { flash.style.opacity = '0'; }, 50);
+            setTimeout(() => { flash.remove(); }, 500);
+
+            // Simpan gambar dari canvas
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            // Tampilkan di UI
+            previewImg.src = dataUrl;
+            downloadLink.href = dataUrl;
+            downloadLink.download = `META_SCAN_${new Date().getTime()}.jpg`;
+            
+            setTimeout(() => {
+                galleryContainer.classList.remove('hidden');
+                galleryContainer.classList.add('flex');
+            }, 300);
+        });
+
+        initBtn.addEventListener('click', startCamera);
+        switchCameraBtn.addEventListener('click', switchCamera);
+        closeGalleryBtn.addEventListener('click', () => {
+            galleryContainer.classList.add('hidden');
+            galleryContainer.classList.remove('flex');
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (stream) stream.getTracks().forEach(track => track.stop());
+            cancelAnimationFrame(animationId);
+        });
+
+    </script>
+</body>
+</html>
+
