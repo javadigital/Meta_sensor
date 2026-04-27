@@ -170,8 +170,6 @@
 
         // Variabel Entitas Energi
         let currentEntity = null;
-        let entitySpawnTime = 0;
-        let isDarkEnvironment = false;
 
         setInterval(() => {
             const now = new Date();
@@ -181,10 +179,15 @@
         async function startCamera() {
             cameraStatus.innerHTML = '<p class="text-xs text-yellow-500 animate-pulse tracking-widest">MENGHUBUNGKAN...</p>';
             try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } },
+                const constraints = {
+                    video: { 
+                        facingMode: currentFacingMode, 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 } 
+                    },
                     audio: false
-                });
+                };
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
                 video.srcObject = stream;
                 
                 video.onloadedmetadata = () => {
@@ -206,6 +209,7 @@
                     renderFrame();
                 };
             } catch (err) {
+                console.error(err);
                 cameraStatus.innerHTML = '<p class="text-xs text-red-500 tracking-widest">AKSES DITOLAK / ERROR</p>';
             }
         }
@@ -213,7 +217,7 @@
         async function switchCamera() {
             if (!isCameraOn) return;
             cancelAnimationFrame(animationId);
-            stream.getTracks().forEach(track => track.stop());
+            if (stream) stream.getTracks().forEach(track => track.stop());
             currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
             await startCamera();
         }
@@ -223,6 +227,7 @@
             const cy = canvas.height / 2;
             const time = Date.now() / 1000;
             
+            ctx.save();
             ctx.globalCompositeOperation = 'screen';
             for (let i = 0; i < 3; i++) {
                 const radius = 80 + Math.sin(time * 3 + i) * 30 + (i * 40);
@@ -232,7 +237,6 @@
                 ctx.lineWidth = 3 + (Math.sin(time * 5) + 1);
                 ctx.stroke();
             }
-            ctx.save();
             ctx.translate(cx, cy);
             ctx.rotate(time * 0.5);
             ctx.strokeStyle = `rgba(0, 200, 255, 0.6)`;
@@ -241,40 +245,41 @@
             ctx.rotate(-time); 
             ctx.strokeRect(-40, -40, 80, 80);
             ctx.restore();
+
+            ctx.save();
             ctx.strokeStyle = `rgba(0, 255, 255, ${(Math.sin(time * 4) + 1) * 0.15})`;
             ctx.lineWidth = 20;
             ctx.strokeRect(0, 0, canvas.width, canvas.height);
-            ctx.globalCompositeOperation = 'source-over';
+            ctx.restore();
         }
 
         // --- SISTEM PEMBANGKIT ENTITAS ENERGI (50 JENIS) ---
         function generateNewEntity() {
-            // Pilih 1 dari 50 jenis ID yang berbeda
             const typeId = Math.floor(Math.random() * 50) + 1;
             entityIdText.innerText = `#${typeId < 10 ? '0'+typeId : typeId}`;
 
-            // Algoritma pembentuk parameter unik untuk tiap entitas berdasarkan typeId
             const colorPalettes = [
-                {r:0, g:255, b:150},   // Ektoplasma Hijau
-                {r:200, g:0, b:255},   // Astral Ungu
-                {r:0, g:100, b:255},   // Arwah Biru
-                {r:255, g:50, b:50},   // Energi Marah Merah
-                {r:255, g:255, b:255}  // Orbs Murni Putih
+                {r:0, g:255, b:200},   // Cyan Mist
+                {r:255, g:0, b:150},   // Pink Astral
+                {r:100, g:255, b:0},   // Ektoplasma
+                {r:255, g:200, b:0},   // Golden Orb
+                {r:200, g:200, b:255}  // Silver Ghost
             ];
+            
             const color = colorPalettes[typeId % 5];
             
             currentEntity = {
                 id: typeId,
-                x: canvas.width * 0.2 + (Math.random() * (canvas.width * 0.6)), // Posisi awal acak
-                y: canvas.height * 0.2 + (Math.random() * (canvas.height * 0.6)),
-                vx: (Math.random() - 0.5) * 1.5,
-                vy: (Math.random() - 0.5) * 1.5,
+                x: canvas.width * 0.3 + (Math.random() * (canvas.width * 0.4)),
+                y: canvas.height * 0.3 + (Math.random() * (canvas.height * 0.4)),
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
                 color: color,
-                baseSize: 30 + Math.random() * 80, // Ukuran bervariasi
-                numPetals: 2 + (typeId % 12),      // Menentukan kompleksitas bentuk (Spirograph)
-                wobbleSpeed: 0.5 + Math.random(),
-                lifeCycle: 0,                      // 0 ke 1 (Fade in/out)
-                maxLife: 200 + Math.random() * 300 // Durasi entitas bertahan (dalam frame)
+                baseSize: 60 + Math.random() * 60,
+                numPetals: 3 + (typeId % 10),
+                wobbleSpeed: 0.8 + Math.random(),
+                lifeCycle: 0,
+                maxLife: 250 + Math.random() * 200
             };
         }
 
@@ -286,86 +291,74 @@
             e.y += e.vy;
             e.lifeCycle++;
 
-            // Hitung Opacity (Fade in perlahan, stay, lalu fade out)
             let opacity = 0;
-            if (e.lifeCycle < 50) {
-                opacity = e.lifeCycle / 50; // Fade in
-            } else if (e.lifeCycle > e.maxLife - 50) {
-                opacity = (e.maxLife - e.lifeCycle) / 50; // Fade out
+            if (e.lifeCycle < 60) {
+                opacity = e.lifeCycle / 60;
+            } else if (e.lifeCycle > e.maxLife - 60) {
+                opacity = (e.maxLife - e.lifeCycle) / 60;
             } else {
-                opacity = 1; // Stay
+                opacity = 1;
             }
 
-            // Jika umur habis, hapus entitas (akan digenerate baru nanti)
             if (e.lifeCycle >= e.maxLife) {
                 currentEntity = null;
                 return;
             }
 
-            ctx.globalCompositeOperation = 'screen';
             const time = Date.now() / 1000;
             
             ctx.save();
+            ctx.globalCompositeOperation = 'screen';
             ctx.translate(e.x, e.y);
-            
-            // Pergerakan rotasi lambat
-            ctx.rotate(time * (e.id % 2 === 0 ? 0.5 : -0.5));
+            ctx.rotate(time * (e.id % 2 === 0 ? 0.3 : -0.3));
 
-            // Gambar bentuk unik berdasarkan ID (dari 1 sampai 50)
+            // Efek Cahaya Belakang (Glow)
+            const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, e.baseSize * 1.5);
+            glow.addColorStop(0, `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, ${opacity * 0.4})`);
+            glow.addColorStop(1, `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, 0)`);
+            ctx.fillStyle = glow;
             ctx.beginPath();
+            ctx.arc(0, 0, e.baseSize * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Gambar Bentuk Geometris Arwah
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, ${opacity})`;
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
             
-            // Kompleksitas bentuk ditentukan oleh numPetals (Algoritma Rose Curve)
-            for(let i = 0; i < Math.PI * 2; i += 0.05) {
-                // Manipulasi jari-jari untuk membentuk pola aneh yang berdenyut
-                const r = e.baseSize + 
-                          Math.sin(i * e.numPetals + time * e.wobbleSpeed) * (e.baseSize * 0.5) +
-                          Math.cos(i * (e.numPetals / 2) - time) * 10;
-                
+            for(let i = 0; i <= Math.PI * 2.1; i += 0.05) {
+                const wave = Math.sin(i * e.numPetals + time * e.wobbleSpeed);
+                const r = e.baseSize * (1 + wave * 0.3);
                 const px = Math.cos(i) * r;
                 const py = Math.sin(i) * r;
-                
                 if(i === 0) ctx.moveTo(px, py);
                 else ctx.lineTo(px, py);
             }
-            ctx.closePath();
-
-            // Beri warna glow
-            ctx.shadowBlur = 30;
-            ctx.shadowColor = `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, ${opacity})`;
-            ctx.lineWidth = 2 + (e.id % 4);
-            ctx.strokeStyle = `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, ${opacity * 0.8})`;
             ctx.stroke();
-            
-            // Inti Entitas
-            ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.5})`;
+
+            // Inti Putih
+            ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.6})`;
+            ctx.beginPath();
+            ctx.arc(0, 0, e.baseSize * 0.2, 0, Math.PI * 2);
             ctx.fill();
 
-            // Tambahkan "mata/inti" kecil agar lebih seram untuk beberapa tipe
-            if (e.id % 3 === 0) {
-                ctx.beginPath();
-                ctx.arc(0, 0, e.baseSize * 0.1, 0, Math.PI*2);
-                ctx.fillStyle = `rgba(0, 0, 0, ${opacity * 0.8})`;
-                ctx.fill();
-            }
-
             ctx.restore();
-            ctx.globalCompositeOperation = 'source-over';
         }
 
-        // --- RENDER UTAMA ---
         function renderFrame() {
             if (!isCameraOn) return;
 
+            // 1. Draw original video/flipped video
+            ctx.save();
             if(currentFacingMode === 'user') {
-                ctx.save();
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                ctx.restore();
-            } else {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             }
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
 
+            // 2. Apply Thermal Logic
             if (applyThermalFilter) {
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
@@ -374,7 +367,7 @@
                 let pixelIndex = 0;
 
                 for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
+                    const r = data[i]; const g = data[i+1]; const b = data[i+2];
                     const luma = 0.299 * r + 0.587 * g + 0.114 * b;
                     totalBrightness += luma;
 
@@ -382,7 +375,6 @@
                     if (previousLumaData) previousLumaData[pixelIndex] = luma;
                     pixelIndex++;
 
-                    // Mapping Warna Meta
                     if (luma < 40) { data[i]=0; data[i+1]=0; data[i+2]=luma*0.5; } 
                     else if (luma < 90) { data[i]=(luma-40)*2; data[i+1]=0; data[i+2]=150; } 
                     else if (luma < 150) { data[i]=200+(luma-90); data[i+1]=0; data[i+2]=150-(luma-90)*2; } 
@@ -400,12 +392,12 @@
                 energyLevelText.innerText = `ENERGY DETECT: ${energyPercentage}%`;
                 energyLevelText.className = energyPercentage > 75 ? "text-xs font-bold text-yellow-400 mt-1 animate-pulse" : "text-xs text-red-400/80 mt-1";
 
-                // 1. LOGIKA FOKUS (Target Locked)
-                if (avgMotion > 10) lastMoveTime = Date.now();
+                // FOKUS
+                if (avgMotion > 12) lastMoveTime = Date.now();
                 const timeStable = Date.now() - lastMoveTime;
                 const focusProgress = Math.min(100, (timeStable / 7000) * 100);
-                
                 focusBar.style.width = `${focusProgress}%`;
+                
                 if (focusProgress >= 100) {
                     focusStatusText.innerText = "TARGET LOCKED";
                     focusStatusText.className = "text-[10px] text-cyan-300 mt-1 animate-pulse font-bold tracking-widest";
@@ -415,27 +407,19 @@
                     focusStatusText.className = "text-[10px] text-cyan-600 mt-1 tracking-widest";
                 }
 
-                // 2. LOGIKA KONDISI GELAP (Entitas Muncul Bergantian)
-                if (avgBrightness < 45) { // Ruangan gelap
-                    isDarkEnvironment = true;
+                // ENTITAS ENERGI (Logika diperbaiki: Ambang batas 55 agar lebih sensitif)
+                if (avgBrightness < 55) { 
                     darkAlert.classList.remove('hidden');
-                    
-                    // Jika belum ada entitas, atau entitas sebelumnya sudah mati (null), buat baru
-                    if (!currentEntity) {
-                        generateNewEntity();
-                    }
-                    
-                    drawEntity();
-
-                } else { // Terang
-                    isDarkEnvironment = false;
+                    if (!currentEntity) generateNewEntity();
+                } else {
                     darkAlert.classList.add('hidden');
-                    // Paksa entitas segera menghilang jika tiba-tiba terang
-                    if (currentEntity && currentEntity.lifeCycle < currentEntity.maxLife - 50) {
-                        currentEntity.lifeCycle = currentEntity.maxLife - 50; 
+                    if (currentEntity && currentEntity.lifeCycle < currentEntity.maxLife - 60) {
+                        currentEntity.lifeCycle = currentEntity.maxLife - 60;
                     }
-                    drawEntity(); // Lanjutkan gambar sisa fade out
                 }
+                
+                // Selalu render entitas jika objeknya ada (untuk proses fade out)
+                drawEntity();
 
             } else {
                 energyLevelText.innerText = `SENSOR NONAKTIF`;
@@ -461,7 +445,7 @@
                 colorScale.classList.add('hidden');
                 focusHud.classList.add('hidden');
                 darkAlert.classList.add('hidden');
-                currentEntity = null; // Hapus entitas jika sensor dimatikan
+                currentEntity = null;
             }
         });
 
@@ -495,9 +479,7 @@
             if (stream) stream.getTracks().forEach(track => track.stop());
             cancelAnimationFrame(animationId);
         });
-
     </script>
 </body>
 </html>
-
 
