@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pendeteksi Energi Meta</title>
+    <title>Meta Sensor Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Efek interaksi tombol */
         .btn-active:active { transform: scale(0.92); }
+        
+        /* Animasi garis pemindai HUD */
         @keyframes scan {
             0% { transform: translateY(-100%); }
             100% { transform: translateY(100%); }
@@ -20,134 +23,170 @@
             animation: scan 3s linear infinite;
             z-index: 20;
         }
+
+        /* Efek grain/noise layar klasik */
         .crt-noise {
             background-image: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)"/%3E%3C/svg%3E');
             opacity: 0.05;
             pointer-events: none;
         }
+
+        /* Gaya tombol Meta saat aktif */
+        .meta-active {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+            border-color: #ef4444 !important;
+            color: #ef4444 !important;
+        }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-200 min-h-screen flex flex-col items-center justify-center p-0 md:p-8 font-mono">
+<body class="bg-black text-gray-200 min-h-screen flex flex-col items-center justify-center p-0 md:p-8 font-mono">
 
-    <div class="w-full max-w-md bg-gray-900 md:rounded-3xl shadow-2xl overflow-hidden border border-gray-800 flex flex-col h-screen md:h-auto relative">
+    <div class="w-full max-w-md bg-neutral-900 md:rounded-[2.5rem] shadow-2xl overflow-hidden border border-neutral-800 flex flex-col h-screen md:h-auto relative">
         
         <!-- Header HUD -->
-        <div class="absolute top-0 left-0 w-full p-4 flex justify-between items-start z-30 pointer-events-none">
+        <div class="absolute top-0 left-0 w-full p-5 flex justify-between items-start z-30 pointer-events-none">
             <div>
-                <h1 class="text-red-500 font-bold tracking-widest text-sm flex items-center gap-2">
-                    <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                <!-- Label Statis Judul Aplikasi -->
+                <h1 class="text-gray-500 font-bold tracking-widest text-sm flex items-center gap-2 mb-1 transition-colors duration-500" id="mainTitle">
+                    <span class="w-2 h-2 bg-gray-700 rounded-full" id="mainTitleDot"></span>
                     META SENSOR
                 </h1>
-                <p id="energyLevelText" class="text-xs text-red-400/80 mt-1">ENERGY DETECT: 0%</p>
 
-                <!-- Sub Menu Focus Tracking -->
-                <div id="focusHud" class="mt-3 border-l-2 border-cyan-500 pl-2 hidden">
-                    <p class="text-[10px] text-cyan-400 tracking-widest font-bold">FOCUS TRACKING</p>
-                    <div class="w-24 h-1 bg-gray-800 mt-1 relative overflow-hidden rounded-full">
-                        <div id="focusBar" class="absolute top-0 left-0 h-full bg-cyan-500 w-0 transition-all duration-75"></div>
+                <!-- HUD Info: Hanya muncul saat mode Meta Aktif -->
+                <div id="hudTextContainer" class="opacity-0 transition-opacity duration-500">
+                    <p class="text-red-500 text-[10px] font-bold tracking-tighter animate-pulse mb-2">SYSTEM ACTIVE: SCANNING MODE</p>
+                    <p id="energyLevelText" class="text-xs text-red-400/80 mt-1">ENERGY DETECT: 0%</p>
+
+                    <!-- Sub Menu Focus Tracking -->
+                    <div id="focusHud" class="mt-3 border-l-2 border-cyan-500 pl-2">
+                        <p class="text-[10px] text-cyan-400 tracking-widest font-bold">FOCUS TRACKING</p>
+                        <div class="w-24 h-1 bg-gray-800 mt-1 relative overflow-hidden rounded-full">
+                            <div id="focusBar" class="absolute top-0 left-0 h-full bg-cyan-500 w-0 transition-all duration-75"></div>
+                        </div>
+                        <p id="focusStatusText" class="text-[10px] text-cyan-600 mt-1 tracking-widest uppercase">Stabilizing...</p>
                     </div>
-                    <p id="focusStatusText" class="text-[10px] text-cyan-600 mt-1 tracking-widest">STABILIZING...</p>
-                </div>
 
-                <!-- Dark Environment Alert -->
-                <div id="darkAlert" class="mt-2 text-[10px] text-purple-400 tracking-widest font-bold animate-pulse hidden bg-purple-900/40 p-1 rounded border border-purple-500/50">
-                    ⚠️ ANOMALI TERDETEKSI: ENTITAS <span id="entityIdText">#00</span>
+                    <!-- Notifikasi Anomali (Tempat Gelap) -->
+                    <div id="darkAlert" class="mt-3 text-[10px] text-purple-400 tracking-widest font-bold animate-pulse hidden bg-purple-900/30 p-1.5 rounded border border-purple-500/50">
+                        ⚠️ ANOMALI: ENTITAS <span id="entityIdText">#00</span>
+                    </div>
                 </div>
             </div>
+            
+            <!-- Jam & Indikator Rekaman -->
             <div class="text-right">
                 <p class="text-[10px] text-gray-500 tracking-widest" id="timeDisplay">00:00:00</p>
-                <p class="text-[10px] text-gray-500 tracking-widest mt-1">REC [::]</p>
+                <div class="flex items-center justify-end gap-1 mt-1">
+                    <div class="w-1.5 h-1.5 bg-red-600 rounded-full"></div>
+                    <p class="text-[10px] text-gray-500 tracking-widest uppercase">Rec</p>
+                </div>
             </div>
         </div>
 
-        <!-- Area Kamera -->
+        <!-- Area Viewfinder Kamera -->
         <div class="relative bg-black w-full flex-grow md:aspect-[3/4] flex justify-center items-center overflow-hidden">
+            <!-- Source Video (Disembunyikan, data diambil ke canvas) -->
             <video id="video" class="hidden" autoplay playsinline></video>
+            
+            <!-- Output Utama -->
             <canvas id="outputCanvas" class="w-full h-full object-cover z-0"></canvas>
 
-            <div id="hudOverlay" class="absolute inset-0 z-10 pointer-events-none hidden border-[1px] border-red-900/30">
-                <div class="absolute top-8 left-8 w-8 h-8 border-t-2 border-l-2 border-red-500/50"></div>
-                <div class="absolute top-8 right-8 w-8 h-8 border-t-2 border-r-2 border-red-500/50"></div>
-                <div class="absolute bottom-8 left-8 w-8 h-8 border-b-2 border-l-2 border-red-500/50"></div>
-                <div class="absolute bottom-8 right-8 w-8 h-8 border-b-2 border-r-2 border-red-500/50"></div>
+            <!-- Visual Overlay HUD -->
+            <div id="hudOverlay" class="absolute inset-0 z-10 pointer-events-none hidden border border-red-900/20">
+                <!-- Siku Pembidik -->
+                <div class="absolute top-10 left-10 w-6 h-6 border-t border-l border-red-500/40"></div>
+                <div class="absolute top-10 right-10 w-6 h-6 border-t border-r border-red-500/40"></div>
+                <div class="absolute bottom-10 left-10 w-6 h-6 border-b border-l border-red-500/40"></div>
+                <div class="absolute bottom-10 right-10 w-6 h-6 border-b border-r border-red-500/40"></div>
                 
-                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center opacity-40">
-                    <div class="w-full h-[1px] bg-red-500"></div>
-                    <div class="absolute h-full w-[1px] bg-red-500"></div>
-                    <div class="w-4 h-4 rounded-full border border-red-500 absolute"></div>
+                <!-- Crosshair Tengah -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 flex items-center justify-center opacity-30">
+                    <div class="w-full h-[0.5px] bg-red-500"></div>
+                    <div class="absolute h-full w-[0.5px] bg-red-500"></div>
+                    <div class="w-5 h-5 rounded-full border border-red-500 absolute"></div>
                 </div>
 
                 <div class="scanner-line"></div>
                 <div class="absolute inset-0 crt-noise z-20"></div>
             </div>
 
-            <div id="cameraStatus" class="absolute text-red-500/50 text-center z-0 flex flex-col items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <p class="tracking-widest text-xs font-bold">SYSTEM OFFLINE</p>
-                <button id="initBtn" class="mt-4 px-4 py-2 border border-red-500/50 text-red-500 hover:bg-red-500/10 text-xs tracking-widest rounded transition">INISIALISASI SENSOR</button>
+            <!-- Layar Awal Sebelum Kamera Aktif -->
+            <div id="cameraStatus" class="absolute text-gray-600 text-center z-40 flex flex-col items-center p-6">
+                <div class="w-16 h-16 rounded-full border border-neutral-800 flex items-center justify-center mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    </svg>
+                </div>
+                <p class="tracking-[0.2em] text-[10px] uppercase font-bold mb-6">Device Ready</p>
+                <button id="initBtn" class="px-10 py-3 bg-white text-black text-[10px] font-black tracking-[0.2em] rounded-full hover:bg-neutral-200 transition-all uppercase">Initialize System</button>
             </div>
         </div>
 
-        <!-- Panel Kontrol -->
-        <div class="p-6 bg-gray-900 border-t border-gray-800 z-20 flex justify-between items-center relative">
-            <div class="absolute -top-12 left-1/2 -translate-x-1/2 w-3/4 max-w-[200px] h-3 rounded-full flex overflow-hidden border border-gray-800 hidden" id="colorScale">
-                <div class="h-full flex-1 bg-black"></div>
-                <div class="h-full flex-1 bg-blue-700"></div>
-                <div class="h-full flex-1 bg-purple-600"></div>
-                <div class="h-full flex-1 bg-red-600"></div>
-                <div class="h-full flex-1 bg-yellow-400"></div>
-                <div class="h-full flex-1 bg-white"></div>
+        <!-- Panel Kontrol Navigasi -->
+        <div class="p-6 bg-neutral-900 border-t border-neutral-800 z-20 flex flex-col gap-6">
+            
+            <!-- Tombol Menu Utama Aktivasi Logika Meta -->
+            <button id="metaMenuBtn" class="btn-active w-full py-3.5 border border-neutral-700 rounded-2xl text-[10px] font-black tracking-[0.2em] text-neutral-500 hover:text-white transition-all disabled:opacity-30 flex items-center justify-center gap-3 uppercase" disabled>
+                <div id="metaIndicator" class="w-1.5 h-1.5 rounded-full bg-neutral-600"></div>
+                Activate Meta Cam
+            </button>
+
+            <div class="flex justify-between items-center px-4 mb-2">
+                <!-- Putar Kamera -->
+                <button id="switchCameraBtn" class="btn-active p-3 text-neutral-500 hover:text-white transition disabled:opacity-20" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+
+                <!-- Tombol Shutter (Jepret) -->
+                <button id="captureBtn" class="btn-active relative flex items-center justify-center w-16 h-16 rounded-full border-2 border-neutral-700 disabled:opacity-20 transition duration-300 group" disabled>
+                    <div class="w-12 h-12 bg-white rounded-full transition-transform group-active:scale-90"></div>
+                </button>
+
+                <!-- Tombol Matikan -->
+                <button id="stopBtn" class="btn-active p-3 text-neutral-500 hover:text-rose-500 transition disabled:opacity-20" disabled>
+                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
-
-            <button id="switchCameraBtn" class="btn-active p-3 text-gray-500 hover:text-red-400 transition disabled:opacity-30" disabled>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-            </button>
-
-            <button id="captureBtn" class="btn-active relative flex items-center justify-center w-16 h-16 rounded-full border-2 border-red-900 disabled:opacity-30 transition duration-300 group" disabled>
-                <div class="w-12 h-12 bg-red-950 group-hover:bg-red-900 rounded-full transition flex items-center justify-center text-red-500 text-xs font-bold">
-                    SCAN
-                </div>
-            </button>
-
-            <button id="toggleFilterBtn" class="btn-active p-3 text-red-500 hover:text-white transition disabled:opacity-30 relative" disabled>
-                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-            </button>
         </div>
     </div>
 
-    <!-- Galeri -->
-    <div id="galleryContainer" class="fixed inset-0 bg-black/90 z-50 flex-col items-center justify-center hidden p-4">
-        <h2 class="text-red-500 font-bold tracking-widest mb-4">DATA TERSIMPAN</h2>
-        <img id="previewImg" class="max-w-full max-h-[70vh] border border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)] mb-6">
-        <div class="flex gap-4">
-            <button id="closeGalleryBtn" class="px-6 py-2 border border-gray-600 text-gray-300 hover:bg-gray-800 text-xs tracking-widest">TUTUP</button>
-            <a id="downloadLink" class="px-6 py-2 bg-red-900/50 border border-red-500 text-red-100 hover:bg-red-800 text-xs tracking-widest text-center flex items-center">EKSPOR DATA</a>
+    <!-- Modal Pratinjau Foto -->
+    <div id="galleryContainer" class="fixed inset-0 bg-black/95 z-50 flex-col items-center justify-center hidden p-6">
+        <h2 class="text-red-500 font-bold tracking-widest text-xs mb-6 uppercase">Data Captured & Decrypted</h2>
+        <div class="relative group">
+            <img id="previewImg" class="max-w-full max-h-[60vh] border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+            <div class="absolute inset-0 pointer-events-none border border-red-500/20 m-2"></div>
+        </div>
+        <div class="flex gap-4 mt-8 w-full max-w-xs">
+            <button id="closeGalleryBtn" class="flex-1 py-3 border border-neutral-700 text-neutral-400 text-[10px] font-bold tracking-widest uppercase hover:bg-neutral-900 transition">Discard</button>
+            <a id="downloadLink" class="flex-1 py-3 bg-red-900/40 border border-red-500 text-red-100 text-[10px] font-bold tracking-widest uppercase text-center flex items-center justify-center hover:bg-red-800/60 transition">Export</a>
         </div>
     </div>
 
     <script>
+        // --- Inisialisasi Elemen ---
         const video = document.getElementById('video');
         const canvas = document.getElementById('outputCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         const initBtn = document.getElementById('initBtn');
+        const stopBtn = document.getElementById('stopBtn');
         const switchCameraBtn = document.getElementById('switchCameraBtn');
         const captureBtn = document.getElementById('captureBtn');
-        const toggleFilterBtn = document.getElementById('toggleFilterBtn');
+        const metaMenuBtn = document.getElementById('metaMenuBtn');
+        const metaIndicator = document.getElementById('metaIndicator');
+        const mainTitle = document.getElementById('mainTitle');
+        const mainTitleDot = document.getElementById('mainTitleDot');
         
         const cameraStatus = document.getElementById('cameraStatus');
         const hudOverlay = document.getElementById('hudOverlay');
-        const colorScale = document.getElementById('colorScale');
+        const hudTextContainer = document.getElementById('hudTextContainer');
         const energyLevelText = document.getElementById('energyLevelText');
         
-        const focusHud = document.getElementById('focusHud');
         const focusBar = document.getElementById('focusBar');
         const focusStatusText = document.getElementById('focusStatusText');
         const darkAlert = document.getElementById('darkAlert');
@@ -158,33 +197,32 @@
         const closeGalleryBtn = document.getElementById('closeGalleryBtn');
         const downloadLink = document.getElementById('downloadLink');
 
+        // --- State Aplikasi ---
         let stream = null;
         let isCameraOn = false;
+        let isMetaActive = false;
         let currentFacingMode = 'environment';
         let animationId;
-        let applyThermalFilter = true;
 
-        // Variabel Fokus
+        // Logika Fokus & Motion
         let previousLumaData = null;
         let lastMoveTime = Date.now();
-
-        // Variabel Entitas Energi
+        
+        // Logika Entitas
         let currentEntity = null;
 
+        // Jam Real-time
         setInterval(() => {
             const now = new Date();
             document.getElementById('timeDisplay').innerText = now.toLocaleTimeString('en-US', { hour12: false });
         }, 1000);
 
+        // --- Fungsi Utama ---
+
         async function startCamera() {
-            cameraStatus.innerHTML = '<p class="text-xs text-yellow-500 animate-pulse tracking-widest">MENGHUBUNGKAN...</p>';
             try {
                 const constraints = {
-                    video: { 
-                        facingMode: currentFacingMode, 
-                        width: { ideal: 640 }, 
-                        height: { ideal: 480 } 
-                    },
+                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } },
                     audio: false
                 };
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -197,72 +235,91 @@
                     previousLumaData = new Uint8Array(canvas.width * canvas.height);
                     
                     cameraStatus.classList.add('hidden');
-                    hudOverlay.classList.remove('hidden');
-                    colorScale.classList.remove('hidden');
-                    focusHud.classList.remove('hidden');
-                    
                     isCameraOn = true;
                     switchCameraBtn.disabled = false;
                     captureBtn.disabled = false;
-                    toggleFilterBtn.disabled = false;
-                    lastMoveTime = Date.now(); 
+                    metaMenuBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    
                     renderFrame();
                 };
             } catch (err) {
                 console.error(err);
-                cameraStatus.innerHTML = '<p class="text-xs text-red-500 tracking-widest">AKSES DITOLAK / ERROR</p>';
+                alert("Akses kamera ditolak. Periksa izin browser.");
             }
         }
 
-        async function switchCamera() {
-            if (!isCameraOn) return;
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            isCameraOn = false;
+            isMetaActive = false;
             cancelAnimationFrame(animationId);
-            if (stream) stream.getTracks().forEach(track => track.stop());
-            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
-            await startCamera();
-        }
-
-        function drawFocusEnergy() {
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const time = Date.now() / 1000;
             
-            ctx.save();
-            ctx.globalCompositeOperation = 'screen';
-            for (let i = 0; i < 3; i++) {
-                const radius = 80 + Math.sin(time * 3 + i) * 30 + (i * 40);
-                ctx.beginPath();
-                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(0, 255, 255, ${0.4 - (i * 0.1)})`;
-                ctx.lineWidth = 3 + (Math.sin(time * 5) + 1);
-                ctx.stroke();
-            }
-            ctx.translate(cx, cy);
-            ctx.rotate(time * 0.5);
-            ctx.strokeStyle = `rgba(0, 200, 255, 0.6)`;
-            ctx.lineWidth = 1.5;
-            ctx.strokeRect(-60, -60, 120, 120);
-            ctx.rotate(-time); 
-            ctx.strokeRect(-40, -40, 80, 80);
-            ctx.restore();
-
-            ctx.save();
-            ctx.strokeStyle = `rgba(0, 255, 255, ${(Math.sin(time * 4) + 1) * 0.15})`;
-            ctx.lineWidth = 20;
-            ctx.strokeRect(0, 0, canvas.width, canvas.height);
-            ctx.restore();
+            // UI Reset
+            cameraStatus.classList.remove('hidden');
+            hudOverlay.classList.add('hidden');
+            hudTextContainer.classList.add('opacity-0');
+            metaMenuBtn.classList.remove('meta-active');
+            metaIndicator.classList.replace('bg-red-500', 'bg-neutral-600');
+            metaIndicator.classList.remove('animate-pulse');
+            metaMenuBtn.innerText = "Activate Meta Cam";
+            
+            mainTitle.classList.replace('text-red-500', 'text-gray-500');
+            mainTitleDot.classList.replace('bg-red-500', 'bg-gray-700');
+            mainTitleDot.classList.remove('animate-pulse');
+            
+            switchCameraBtn.disabled = true;
+            captureBtn.disabled = true;
+            metaMenuBtn.disabled = true;
+            stopBtn.disabled = true;
         }
 
-        // --- SISTEM PEMBANGKIT ENTITAS ENERGI (50 JENIS) ---
+        function toggleMetaMode() {
+            isMetaActive = !isMetaActive;
+            if (isMetaActive) {
+                metaMenuBtn.classList.add('meta-active');
+                metaIndicator.classList.replace('bg-neutral-600', 'bg-red-500');
+                metaIndicator.classList.add('animate-pulse');
+                metaMenuBtn.innerText = "Meta Cam Online";
+                hudOverlay.classList.remove('hidden');
+                hudTextContainer.classList.remove('opacity-0');
+                
+                mainTitle.classList.replace('text-gray-500', 'text-red-500');
+                mainTitleDot.classList.replace('bg-gray-700', 'bg-red-500');
+                mainTitleDot.classList.add('animate-pulse');
+                
+                lastMoveTime = Date.now();
+            } else {
+                metaMenuBtn.classList.remove('meta-active');
+                metaIndicator.classList.replace('bg-red-500', 'bg-neutral-600');
+                metaIndicator.classList.remove('animate-pulse');
+                metaMenuBtn.innerText = "Activate Meta Cam";
+                hudOverlay.classList.add('hidden');
+                hudTextContainer.classList.add('opacity-0');
+                
+                mainTitle.classList.replace('text-red-500', 'text-gray-500');
+                mainTitleDot.classList.replace('bg-red-500', 'bg-gray-700');
+                mainTitleDot.classList.remove('animate-pulse');
+                
+                currentEntity = null;
+            }
+        }
+
+        // --- Logika Visual Energi (50 Jenis) ---
+
         function generateNewEntity() {
+            // Pilih 1 dari 50 jenis secara acak
             const typeId = Math.floor(Math.random() * 50) + 1;
             entityIdText.innerText = `#${typeId < 10 ? '0'+typeId : typeId}`;
 
             const colorPalettes = [
-                {r:0, g:255, b:200},   // Cyan Mist
-                {r:255, g:0, b:150},   // Pink Astral
+                {r:0, g:255, b:200},   // Cyan Astral
+                {r:255, g:0, b:150},   // Pink Essence
                 {r:100, g:255, b:0},   // Ektoplasma
-                {r:255, g:200, b:0},   // Golden Orb
+                {r:255, g:200, b:0},   // Golden Spirit
                 {r:200, g:200, b:255}  // Silver Ghost
             ];
             
@@ -272,14 +329,14 @@
                 id: typeId,
                 x: canvas.width * 0.3 + (Math.random() * (canvas.width * 0.4)),
                 y: canvas.height * 0.3 + (Math.random() * (canvas.height * 0.4)),
-                vx: (Math.random() - 0.5) * 2,
-                vy: (Math.random() - 0.5) * 2,
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: (Math.random() - 0.5) * 1.5,
                 color: color,
                 baseSize: 60 + Math.random() * 60,
-                numPetals: 3 + (typeId % 10),
+                numPetals: 3 + (typeId % 12),
                 wobbleSpeed: 0.8 + Math.random(),
                 lifeCycle: 0,
-                maxLife: 250 + Math.random() * 200
+                maxLife: 280
             };
         }
 
@@ -287,18 +344,13 @@
             if (!currentEntity) return;
 
             const e = currentEntity;
-            e.x += e.vx;
-            e.y += e.vy;
+            e.x += e.vx; e.y += e.vy;
             e.lifeCycle++;
 
             let opacity = 0;
-            if (e.lifeCycle < 60) {
-                opacity = e.lifeCycle / 60;
-            } else if (e.lifeCycle > e.maxLife - 60) {
-                opacity = (e.maxLife - e.lifeCycle) / 60;
-            } else {
-                opacity = 1;
-            }
+            if (e.lifeCycle < 60) opacity = e.lifeCycle / 60;
+            else if (e.lifeCycle > e.maxLife - 60) opacity = (e.maxLife - e.lifeCycle) / 60;
+            else opacity = 1;
 
             if (e.lifeCycle >= e.maxLife) {
                 currentEntity = null;
@@ -306,27 +358,22 @@
             }
 
             const time = Date.now() / 1000;
-            
             ctx.save();
             ctx.globalCompositeOperation = 'screen';
             ctx.translate(e.x, e.y);
             ctx.rotate(time * (e.id % 2 === 0 ? 0.3 : -0.3));
 
-            // Efek Cahaya Belakang (Glow)
-            const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, e.baseSize * 1.5);
-            glow.addColorStop(0, `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, ${opacity * 0.4})`);
-            glow.addColorStop(1, `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, 0)`);
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(0, 0, e.baseSize * 1.5, 0, Math.PI * 2);
-            ctx.fill();
+            // Glow Aura
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, e.baseSize * 1.6);
+            grad.addColorStop(0, `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, ${opacity * 0.5})`);
+            grad.addColorStop(1, `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(0, 0, e.baseSize * 1.6, 0, Math.PI * 2); ctx.fill();
 
-            // Gambar Bentuk Geometris Arwah
+            // Bentuk Geometris Rose Curve
             ctx.beginPath();
             ctx.strokeStyle = `rgba(${e.color.r}, ${e.color.g}, ${e.color.b}, ${opacity})`;
             ctx.lineWidth = 3;
-            ctx.lineJoin = 'round';
-            
             for(let i = 0; i <= Math.PI * 2.1; i += 0.05) {
                 const wave = Math.sin(i * e.numPetals + time * e.wobbleSpeed);
                 const r = e.baseSize * (1 + wave * 0.3);
@@ -337,19 +384,45 @@
             }
             ctx.stroke();
 
-            // Inti Putih
+            // Inti Cahaya
             ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.6})`;
-            ctx.beginPath();
-            ctx.arc(0, 0, e.baseSize * 0.2, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(0, 0, e.baseSize * 0.15, 0, Math.PI * 2); ctx.fill();
 
             ctx.restore();
         }
 
+        // --- Logika Fokus (7 Detik) ---
+
+        function drawFocusEffect() {
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const time = Date.now() / 1000;
+            
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            
+            // Cincin Berdenyut
+            for (let i = 0; i < 2; i++) {
+                const r = 100 + Math.sin(time * 3 + i) * 20;
+                ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 255, 255, 0.4)`; ctx.lineWidth = 2; ctx.stroke();
+            }
+            
+            // Kotak Berputar
+            ctx.translate(cx, cy);
+            ctx.rotate(time * 0.5);
+            ctx.strokeStyle = `rgba(0, 255, 255, 0.6)`;
+            ctx.strokeRect(-70, -70, 140, 140);
+            
+            ctx.restore();
+        }
+
+        // --- Loop Utama Render ---
+
         function renderFrame() {
             if (!isCameraOn) return;
 
-            // 1. Draw original video/flipped video
+            // 1. Gambar Feed Video Dasar
             ctx.save();
             if(currentFacingMode === 'user') {
                 ctx.translate(canvas.width, 0);
@@ -358,127 +431,110 @@
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             ctx.restore();
 
-            // 2. Apply Thermal Logic
-            if (applyThermalFilter) {
+            // 2. Jika Mode Meta Aktif, Jalankan Semua Logika Pemrosesan
+            if (isMetaActive) {
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
                 let totalBrightness = 0;
                 let totalMotion = 0;
                 let pixelIndex = 0;
 
+                // Pemrosesan Piksel (Thermal + Motion)
                 for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i]; const g = data[i+1]; const b = data[i+2];
-                    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                    const luma = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
                     totalBrightness += luma;
 
-                    if (previousLumaData) totalMotion += Math.abs(luma - previousLumaData[pixelIndex]);
-                    if (previousLumaData) previousLumaData[pixelIndex] = luma;
+                    if (previousLumaData) {
+                        totalMotion += Math.abs(luma - previousLumaData[pixelIndex]);
+                        previousLumaData[pixelIndex] = luma;
+                    }
                     pixelIndex++;
 
+                    // Mapping Warna Thermal/Meta
                     if (luma < 40) { data[i]=0; data[i+1]=0; data[i+2]=luma*0.5; } 
                     else if (luma < 90) { data[i]=(luma-40)*2; data[i+1]=0; data[i+2]=150; } 
                     else if (luma < 150) { data[i]=200+(luma-90); data[i+1]=0; data[i+2]=150-(luma-90)*2; } 
                     else if (luma < 210) { data[i]=255; data[i+1]=(luma-150)*4; data[i+2]=0; } 
                     else { data[i]=255; data[i+1]=255; data[i+2]=150+(luma-210)*2; }
                 }
-
                 ctx.putImageData(imageData, 0, 0);
 
-                const totalPixels = canvas.width * canvas.height;
-                const avgBrightness = totalBrightness / totalPixels;
-                const avgMotion = totalPixels > 0 ? (totalMotion / totalPixels) : 0;
-                const energyPercentage = Math.min(100, Math.round((avgBrightness / 255) * 100 * 1.5));
+                const avgBrightness = totalBrightness / (canvas.width * canvas.height);
+                const avgMotion = totalMotion / (canvas.width * canvas.height);
                 
-                energyLevelText.innerText = `ENERGY DETECT: ${energyPercentage}%`;
-                energyLevelText.className = energyPercentage > 75 ? "text-xs font-bold text-yellow-400 mt-1 animate-pulse" : "text-xs text-red-400/80 mt-1";
+                energyLevelText.innerText = `ENERGY DETECT: ${Math.min(100, Math.round(avgBrightness/255*150))}%`;
 
-                // FOKUS
-                if (avgMotion > 12) lastMoveTime = Date.now();
+                // --- Logika Fokus 7 Detik ---
+                if (avgMotion > 12) lastMoveTime = Date.now(); // Jika goyang, reset timer
                 const timeStable = Date.now() - lastMoveTime;
                 const focusProgress = Math.min(100, (timeStable / 7000) * 100);
-                focusBar.style.width = `${focusProgress}%`;
                 
+                focusBar.style.width = `${focusProgress}%`;
                 if (focusProgress >= 100) {
-                    focusStatusText.innerText = "TARGET LOCKED";
-                    focusStatusText.className = "text-[10px] text-cyan-300 mt-1 animate-pulse font-bold tracking-widest";
-                    drawFocusEnergy();
+                    focusStatusText.innerText = "Target Locked";
+                    focusStatusText.classList.add('text-cyan-300');
+                    drawFocusEffect();
                 } else {
-                    focusStatusText.innerText = `STABILIZING... ${Math.floor(focusProgress)}%`;
-                    focusStatusText.className = "text-[10px] text-cyan-600 mt-1 tracking-widest";
+                    focusStatusText.innerText = "Stabilizing...";
+                    focusStatusText.classList.remove('text-cyan-300');
                 }
 
-                // ENTITAS ENERGI (Logika diperbaiki: Ambang batas 55 agar lebih sensitif)
-                if (avgBrightness < 55) { 
+                // --- Logika Dark Environment (Anomali) ---
+                if (avgBrightness < 55) {
                     darkAlert.classList.remove('hidden');
                     if (!currentEntity) generateNewEntity();
                 } else {
                     darkAlert.classList.add('hidden');
+                    // Paksa entitas hilang jika terang
                     if (currentEntity && currentEntity.lifeCycle < currentEntity.maxLife - 60) {
                         currentEntity.lifeCycle = currentEntity.maxLife - 60;
                     }
                 }
                 
-                // Selalu render entitas jika objeknya ada (untuk proses fade out)
+                // Selalu render entitas jika ada data (untuk fade out)
                 drawEntity();
-
-            } else {
-                energyLevelText.innerText = `SENSOR NONAKTIF`;
-                energyLevelText.className = "text-xs text-gray-500 mt-1";
-                focusHud.classList.add('hidden');
-                darkAlert.classList.add('hidden');
             }
 
             animationId = requestAnimationFrame(renderFrame);
         }
 
-        toggleFilterBtn.addEventListener('click', () => {
-            applyThermalFilter = !applyThermalFilter;
-            if(applyThermalFilter) {
-                toggleFilterBtn.classList.replace('text-gray-500', 'text-red-500');
-                hudOverlay.classList.remove('hidden');
-                colorScale.classList.remove('hidden');
-                focusHud.classList.remove('hidden');
-                lastMoveTime = Date.now();
-            } else {
-                toggleFilterBtn.classList.replace('text-red-500', 'text-gray-500');
-                hudOverlay.classList.add('hidden');
-                colorScale.classList.add('hidden');
-                focusHud.classList.add('hidden');
-                darkAlert.classList.add('hidden');
-                currentEntity = null;
-            }
+        // --- Event Listener ---
+
+        initBtn.addEventListener('click', startCamera);
+        stopBtn.addEventListener('click', stopCamera);
+        metaMenuBtn.addEventListener('click', toggleMetaMode);
+        
+        switchCameraBtn.addEventListener('click', async () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            cancelAnimationFrame(animationId);
+            if (stream) stream.getTracks().forEach(t => t.stop());
+            await startCamera();
         });
 
         captureBtn.addEventListener('click', () => {
             if (!isCameraOn) return;
+            // Efek Flash Shutter
             const flash = document.createElement('div');
-            flash.className = 'absolute inset-0 bg-white z-50 opacity-80 transition-opacity duration-500';
+            flash.className = 'absolute inset-0 bg-white z-50 opacity-100 transition-opacity duration-300';
             video.parentElement.appendChild(flash);
-            setTimeout(() => { flash.style.opacity = '0'; }, 50);
-            setTimeout(() => { flash.remove(); }, 500);
+            setTimeout(() => flash.style.opacity = '0', 50);
+            setTimeout(() => flash.remove(), 400);
 
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
             previewImg.src = dataUrl;
             downloadLink.href = dataUrl;
-            downloadLink.download = `META_SCAN_${new Date().getTime()}.jpg`;
-            
-            setTimeout(() => {
-                galleryContainer.classList.remove('hidden');
-                galleryContainer.classList.add('flex');
-            }, 300);
+            downloadLink.download = `META_SCAN_${Date.now()}.jpg`;
+            galleryContainer.classList.replace('hidden', 'flex');
         });
 
-        initBtn.addEventListener('click', startCamera);
-        switchCameraBtn.addEventListener('click', switchCamera);
         closeGalleryBtn.addEventListener('click', () => {
-            galleryContainer.classList.add('hidden');
-            galleryContainer.classList.remove('flex');
+            galleryContainer.classList.replace('flex', 'hidden');
         });
 
         window.addEventListener('beforeunload', () => {
-            if (stream) stream.getTracks().forEach(track => track.stop());
-            cancelAnimationFrame(animationId);
+            if (stream) stream.getTracks().forEach(t => t.stop());
         });
+
     </script>
 </body>
 </html>
